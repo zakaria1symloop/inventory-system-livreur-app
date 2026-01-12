@@ -1,8 +1,8 @@
 class ApiConstants {
   // Local development
-  static const String baseUrl = 'http://192.168.100.36:8080/api';
-  // Production:i don't
-  //static const String baseUrl = 'https://rafik-biskra.symloop.com/api';
+  // static const String baseUrl = 'http://192.168.100.36:8080/api';
+  // Production:
+  static const String baseUrl = 'https://rafik-biskra.symloop.com/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // Auth
