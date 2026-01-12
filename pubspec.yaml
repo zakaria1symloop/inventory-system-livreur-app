@@ -1,0 +1,65 @@
+name: livreur_app
+description: "تطبيق السائق - نظام إدارة المخزون"
+publish_to: 'none'
+
+version: 1.0.1+2
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # HTTP & API
+  dio: ^5.4.0
+
+  # Local Database
+  sqflite: ^2.3.2
+  path: ^1.8.3
+
+  # Storage
+  shared_preferences: ^2.2.2
+
+  # Location & Maps
+  geolocator: ^11.0.0
+  url_launcher: ^6.2.4
+  flutter_local_notifications: ^18.0.1
+
+  # UI
+  google_fonts: ^6.1.0
+  flutter_spinkit: ^5.2.0
+
+  # Utils
+  intl: ^0.20.2
+  connectivity_plus: ^5.0.2
+  uuid: ^4.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  riverpod_generator: ^2.3.9
+  build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/Nobg.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/Nobg.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/images/Nobg.png
