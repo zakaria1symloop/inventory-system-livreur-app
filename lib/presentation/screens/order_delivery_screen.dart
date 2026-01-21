@@ -136,8 +136,8 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     double total = 0;
     for (var item in _products) {
       final qty = deliveredQuantities[item.productId] ?? 0;
-      // unitPrice is already the price per package, don't multiply by piecesPerPackage
-      total += qty * item.unitPrice;
+      // unitPrice is per piece, multiply by piecesPerPackage to match backend calculation
+      total += qty * item.unitPrice * item.piecesPerPackage;
     }
     return total;
   }
@@ -147,8 +147,8 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     for (var item in _products) {
       final delivered = deliveredQuantities[item.productId] ?? 0;
       final returned = item.quantityConfirmed - delivered;
-      // unitPrice is already the price per package, don't multiply by piecesPerPackage
-      total += returned * item.unitPrice;
+      // unitPrice is per piece, multiply by piecesPerPackage to match backend calculation
+      total += returned * item.unitPrice * item.piecesPerPackage;
     }
     return total;
   }
