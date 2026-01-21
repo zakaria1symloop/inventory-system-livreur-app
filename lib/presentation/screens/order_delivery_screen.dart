@@ -51,6 +51,18 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
 
   double get debtAmount => totalDeliveredAmount - actualCollectedAmount;
 
+  // Old debt before this delivery (excluding current delivery)
+  double get oldDebt {
+    final clientBalance = widget.order.clientBalance ?? 0;
+    // Client balance includes all debt, we need to exclude this delivery's amount
+    // Since this delivery hasn't been added to balance yet, clientBalance is the old debt
+    return clientBalance;
+  }
+
+  double get totalDebtWithOld => oldDebt + totalDeliveredAmount;
+
+  double get remainingDebtAfterPayment => totalDebtWithOld - actualCollectedAmount;
+
   void _updateAmountFromQuantity() {
     if (!_manualAmountEdit) {
       _amountController.text = totalDeliveredAmount.toStringAsFixed(0);
@@ -124,7 +136,8 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     double total = 0;
     for (var item in _products) {
       final qty = deliveredQuantities[item.productId] ?? 0;
-      total += qty * item.unitPrice * item.piecesPerPackage;
+      // unitPrice is already the price per package, don't multiply by piecesPerPackage
+      total += qty * item.unitPrice;
     }
     return total;
   }
@@ -134,7 +147,8 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     for (var item in _products) {
       final delivered = deliveredQuantities[item.productId] ?? 0;
       final returned = item.quantityConfirmed - delivered;
-      total += returned * item.unitPrice * item.piecesPerPackage;
+      // unitPrice is already the price per package, don't multiply by piecesPerPackage
+      total += returned * item.unitPrice;
     }
     return total;
   }
@@ -363,7 +377,7 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     Text(
-                      '${item.unitPrice.toStringAsFixed(0)}×${item.piecesPerPackage}×${item.quantityConfirmed}',
+                      '${item.unitPrice.toStringAsFixed(0)}×${item.quantityConfirmed}',
                       style: TextStyle(fontSize: 8, color: Colors.grey[500]),
                     ),
                   ],
@@ -516,6 +530,48 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Old debt info card
+            if (oldDebt > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('دين سابق:', style: TextStyle(fontSize: 11, color: Colors.orange[800])),
+                        Text('${oldDebt.toStringAsFixed(0)} د.ج',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange[800])),
+                      ],
+                    ),
+                    const Divider(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('هذا التوصيل:', style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                        Text('${totalDeliveredAmount.toStringAsFixed(0)} د.ج',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                      ],
+                    ),
+                    const Divider(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('المجموع الكلي:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red[800])),
+                        Text('${totalDebtWithOld.toStringAsFixed(0)} د.ج',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.red[800])),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             // Summary row
             Row(
               children: [
@@ -560,21 +616,63 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                 ),
               ],
             ),
-            // Debt warning
-            if (debtAmount > 0) ...[
+            // Payment status warning/info
+            if (actualCollectedAmount != totalDeliveredAmount || oldDebt > 0) ...[
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 decoration: BoxDecoration(
-                  color: Colors.orange[100],
+                  color: remainingDebtAfterPayment > 0
+                      ? Colors.orange[100]
+                      : actualCollectedAmount > totalDeliveredAmount
+                          ? Colors.green[100]
+                          : Colors.blue[50],
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
-                    const SizedBox(width: 6),
-                    Text('دين: ${debtAmount.toStringAsFixed(0)} د.ج', style: TextStyle(color: Colors.orange[800], fontSize: 12, fontWeight: FontWeight.w600)),
+                    if (actualCollectedAmount > totalDeliveredAmount && oldDebt > 0) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('دفع زائد للدين القديم:', style: TextStyle(color: Colors.green[800], fontSize: 11)),
+                          Text('${(actualCollectedAmount - totalDeliveredAmount).toStringAsFixed(0)} د.ج',
+                              style: TextStyle(color: Colors.green[800], fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              remainingDebtAfterPayment > 0 ? Icons.warning_amber_rounded : Icons.check_circle,
+                              color: remainingDebtAfterPayment > 0 ? Colors.orange : Colors.green,
+                              size: 16
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              remainingDebtAfterPayment > 0 ? 'الدين المتبقي:' : 'تم السداد:',
+                              style: TextStyle(
+                                color: remainingDebtAfterPayment > 0 ? Colors.orange[800] : Colors.green[800],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600
+                              )
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${remainingDebtAfterPayment.abs().toStringAsFixed(0)} د.ج',
+                          style: TextStyle(
+                            color: remainingDebtAfterPayment > 0 ? Colors.orange[800] : Colors.green[800],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold
+                          )
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -128,6 +128,7 @@ class DeliveryOrderModel {
   final String? clientAddress;
   final double? clientLat;
   final double? clientLng;
+  final double? clientBalance; // Old debt before this delivery
   final double? grandTotal;
   final double? amountDue;
   final double? amountCollected;
@@ -149,6 +150,7 @@ class DeliveryOrderModel {
     this.clientAddress,
     this.clientLat,
     this.clientLng,
+    this.clientBalance,
     this.grandTotal,
     this.amountDue,
     this.amountCollected,
@@ -221,6 +223,7 @@ class DeliveryOrderModel {
       clientAddress: json['client']?['address'],
       clientLat: parseDouble(json['client']?['gps_lat']),
       clientLng: parseDouble(json['client']?['gps_lng']),
+      clientBalance: parseDouble(json['client']?['balance']),
       grandTotal: grandTotal,
       amountDue: amountDue,
       amountCollected: amountCollected,
@@ -245,6 +248,7 @@ class DeliveryOrderModel {
       'client_address': clientAddress,
       'client_lat': clientLat,
       'client_lng': clientLng,
+      'client_balance': clientBalance,
       'grand_total': grandTotal,
       'amount_due': amountDue,
       'amount_collected': amountCollected,
@@ -268,6 +272,7 @@ class DeliveryOrderModel {
       clientAddress: map['client_address'],
       clientLat: map['client_lat'],
       clientLng: map['client_lng'],
+      clientBalance: map['client_balance'],
       grandTotal: map['grand_total'],
       amountDue: map['amount_due'],
       amountCollected: map['amount_collected'],
