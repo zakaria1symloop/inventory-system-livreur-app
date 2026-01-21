@@ -37,7 +37,8 @@ class DeliveryHistoryScreen extends ConsumerStatefulWidget {
   const DeliveryHistoryScreen({super.key});
 
   @override
-  ConsumerState<DeliveryHistoryScreen> createState() => _DeliveryHistoryScreenState();
+  ConsumerState<DeliveryHistoryScreen> createState() =>
+      _DeliveryHistoryScreenState();
 }
 
 class _DeliveryHistoryScreenState extends ConsumerState<DeliveryHistoryScreen> {
@@ -110,9 +111,8 @@ class _DeliveryHistoryScreenState extends ConsumerState<DeliveryHistoryScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => DeliveryOrdersScreen(
-                                  delivery: delivery,
-                                ),
+                                builder: (context) =>
+                                    DeliveryOrdersScreen(delivery: delivery),
                               ),
                             );
                           },
@@ -128,22 +128,26 @@ class _DeliveryCard extends StatelessWidget {
   final DeliveryModel delivery;
   final VoidCallback onTap;
 
-  const _DeliveryCard({
-    required this.delivery,
-    required this.onTap,
-  });
+  const _DeliveryCard({required this.delivery, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    // Calculate totals
+    // Calculate totals - amountDue already includes old debt
     double totalToCollect = 0;
     double totalCollected = 0;
+
     for (var order in delivery.orders) {
-      totalToCollect += order.amountDue ?? order.grandTotal ?? 0;
+      final amountDue = order.amountDue ?? order.grandTotal ?? 0;
+      final collected = order.amountCollected ?? 0;
+
+      totalToCollect += amountDue;
       if (order.isDelivered || order.isPartial) {
-        totalCollected += order.amountCollected ?? 0;
+        totalCollected += collected;
       }
     }
+
+    // Total debt is simply what was due minus what was collected
+    final totalDebt = totalToCollect - totalCollected;
     final successRate = delivery.totalOrders > 0
         ? ((delivery.deliveredCount / delivery.totalOrders) * 100).toInt()
         : 0;
@@ -162,7 +166,9 @@ class _DeliveryCard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -175,7 +181,11 @@ class _DeliveryCard extends StatelessWidget {
                           color: AppTheme.primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.delivery_dining, color: AppTheme.primaryColor, size: 20),
+                        child: const Icon(
+                          Icons.delivery_dining,
+                          color: AppTheme.primaryColor,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Column(
@@ -183,24 +193,41 @@ class _DeliveryCard extends StatelessWidget {
                         children: [
                           Text(
                             delivery.reference,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
+                              Icon(
+                                Icons.calendar_today,
+                                size: 12,
+                                color: Colors.grey[600],
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 formatDate(delivery.date),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[600],
+                                ),
                               ),
                               if (delivery.startTime != null) ...[
                                 const SizedBox(width: 8),
-                                Icon(Icons.access_time, size: 12, color: Colors.grey[600]),
+                                Icon(
+                                  Icons.access_time,
+                                  size: 12,
+                                  color: Colors.grey[600],
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   formatTime(delivery.startTime),
-                                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
                                 ),
                               ],
                             ],
@@ -223,7 +250,8 @@ class _DeliveryCard extends StatelessWidget {
                     child: _MiniStat(
                       icon: Icons.shopping_bag_outlined,
                       label: 'الطلبات',
-                      value: '${delivery.deliveredCount}/${delivery.totalOrders}',
+                      value:
+                          '${delivery.deliveredCount}/${delivery.totalOrders}',
                       color: AppTheme.primaryColor,
                     ),
                   ),
@@ -233,8 +261,11 @@ class _DeliveryCard extends StatelessWidget {
                       icon: Icons.trending_up,
                       label: 'نسبة النجاح',
                       value: '$successRate%',
-                      color: successRate >= 80 ? AppTheme.successColor :
-                             successRate >= 50 ? Colors.orange : AppTheme.dangerColor,
+                      color: successRate >= 80
+                          ? AppTheme.successColor
+                          : successRate >= 50
+                          ? Colors.orange
+                          : AppTheme.dangerColor,
                     ),
                   ),
                   Container(width: 1, height: 30, color: Colors.grey[300]),
@@ -256,7 +287,11 @@ class _DeliveryCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    Icon(Icons.local_shipping, size: 14, color: Colors.grey[500]),
+                    Icon(
+                      Icons.local_shipping,
+                      size: 14,
+                      color: Colors.grey[500],
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       delivery.vehicleName!,
@@ -286,59 +321,80 @@ class _DeliveryCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           'العملاء',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ...delivery.orders.take(4).map((order) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: order.isDelivered ? AppTheme.successColor :
-                                     order.isFailed ? AppTheme.dangerColor :
-                                     order.isPartial ? Colors.orange : Colors.grey[400],
+                    ...delivery.orders
+                        .take(4)
+                        .map(
+                          (order) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: order.isDelivered
+                                        ? AppTheme.successColor
+                                        : order.isFailed
+                                        ? AppTheme.dangerColor
+                                        : order.isPartial
+                                        ? Colors.orange
+                                        : Colors.grey[400],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    order.clientName ?? 'عميل',
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (order.clientPhone != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: Text(
+                                      order.clientPhone!,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey[500],
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  formatCurrency(order.grandTotal ?? 0),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: order.isDelivered
+                                        ? AppTheme.successColor
+                                        : Colors.grey[700],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              order.clientName ?? 'عميل',
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (order.clientPhone != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Text(
-                                order.clientPhone!,
-                                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
-                              ),
-                            ),
-                          const SizedBox(width: 8),
-                          Text(
-                            formatCurrency(order.grandTotal ?? 0),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: order.isDelivered ? AppTheme.successColor : Colors.grey[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
+                        ),
                     if (delivery.orders.length > 4)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           '+${delivery.orders.length - 4} طلبات أخرى',
-                          style: TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                   ],
@@ -348,11 +404,14 @@ class _DeliveryCard extends StatelessWidget {
 
             // Money summary
             Container(
-              margin: const EdgeInsets.all(12),
+              margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.successColor.withValues(alpha: 0.1), AppTheme.successColor.withValues(alpha: 0.05)],
+                  colors: [
+                    AppTheme.successColor.withValues(alpha: 0.1),
+                    AppTheme.successColor.withValues(alpha: 0.05),
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -361,25 +420,38 @@ class _DeliveryCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.account_balance_wallet, size: 18, color: AppTheme.successColor),
+                      const Icon(
+                        Icons.account_balance_wallet,
+                        size: 18,
+                        color: AppTheme.successColor,
+                      ),
                       const SizedBox(width: 8),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'إجمالي للتحصيل',
-                            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
                           ),
                           Text(
                             formatCurrency(totalToCollect),
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.successColor,
                       borderRadius: BorderRadius.circular(20),
@@ -390,7 +462,11 @@ class _DeliveryCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           formatCurrency(totalCollected),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -398,6 +474,50 @@ class _DeliveryCard extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Debt information
+            if (totalDebt > 0)
+              Container(
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 20,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'الديون المستحقة',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      formatCurrency(totalDebt),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              const SizedBox(height: 12),
           ],
         ),
       ),
@@ -426,12 +546,13 @@ class _MiniStat extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
-        Text(
-          label,
-          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-        ),
+        Text(label, style: TextStyle(fontSize: 9, color: Colors.grey[600])),
       ],
     );
   }
@@ -465,10 +586,7 @@ class _StatChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -549,9 +667,7 @@ class DeliveryOrdersScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(delivery.reference),
-      ),
+      appBar: AppBar(title: Text(delivery.reference)),
       body: Column(
         children: [
           // Summary card
@@ -666,9 +782,8 @@ class DeliveryOrdersScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => OrderDetailsScreen(
-                                order: order,
-                              ),
+                              builder: (context) =>
+                                  OrderDetailsScreen(order: order),
                             ),
                           );
                         },
@@ -709,10 +824,7 @@ class _SummaryItem extends StatelessWidget {
             color: color,
           ),
         ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
@@ -722,10 +834,7 @@ class _OrderCard extends StatelessWidget {
   final DeliveryOrderModel order;
   final VoidCallback onTap;
 
-  const _OrderCard({
-    required this.order,
-    required this.onTap,
-  });
+  const _OrderCard({required this.order, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -768,9 +877,7 @@ class _OrderCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             order.clientName ?? 'عميل',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                         _OrderStatusBadge(status: order.status),
@@ -780,7 +887,11 @@ class _OrderCard extends StatelessWidget {
                     if (order.clientAddress != null)
                       Row(
                         children: [
-                          Icon(Icons.location_on, size: 14, color: Colors.grey[500]),
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: Colors.grey[500],
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -815,7 +926,10 @@ class _OrderCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.blue[50],
                             borderRadius: BorderRadius.circular(4),
@@ -830,11 +944,17 @@ class _OrderCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        if (order.amountCollected != null && order.amountCollected! > 0)
+                        if (order.amountCollected != null &&
+                            order.amountCollected! > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppTheme.successColor.withValues(alpha: 0.1),
+                              color: AppTheme.successColor.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -975,9 +1095,7 @@ class OrderDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('طلب ${order.clientName ?? ""}'),
-      ),
+      appBar: AppBar(title: Text('طلب ${order.clientName ?? ""}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -993,7 +1111,9 @@ class OrderDetailsScreen extends StatelessWidget {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          backgroundColor: AppTheme.primaryColor.withValues(
+                            alpha: 0.1,
+                          ),
                           child: Text(
                             order.clientName?.substring(0, 1) ?? 'ع',
                             style: const TextStyle(
@@ -1017,9 +1137,7 @@ class OrderDetailsScreen extends StatelessWidget {
                               if (order.clientPhone != null)
                                 Text(
                                   order.clientPhone!,
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                  ),
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
                             ],
                           ),
@@ -1031,7 +1149,11 @@ class OrderDetailsScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1053,7 +1175,16 @@ class OrderDetailsScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      'الملخص المالي',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1065,7 +1196,7 @@ class OrderDetailsScreen extends StatelessWidget {
                       ],
                     ),
                     if (order.amountDue != null) ...[
-                      const Divider(height: 16),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1077,12 +1208,23 @@ class OrderDetailsScreen extends StatelessWidget {
                         ],
                       ),
                     ],
-                    if (order.amountCollected != null && order.amountCollected! > 0) ...[
-                      const Divider(height: 16),
+                    if (order.amountCollected != null &&
+                        order.amountCollected! > 0) ...[
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('المبلغ المحصّل'),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                size: 16,
+                                color: AppTheme.successColor,
+                              ),
+                              const SizedBox(width: 6),
+                              const Text('المبلغ المحصّل'),
+                            ],
+                          ),
                           Text(
                             '${order.amountCollected!.toStringAsFixed(0)} د.ج',
                             style: const TextStyle(
@@ -1093,13 +1235,68 @@ class OrderDetailsScreen extends StatelessWidget {
                         ],
                       ),
                     ],
+
+                    // Total debt (amountDue already includes old debt + order total)
+                    if (order.isDelivered || order.isPartial) ...[
+                      final totalDebt = (order.amountDue ?? order.grandTotal ?? 0) - (order.amountCollected ?? 0),
+                      if (totalDebt > 0) ...[
+                        const Divider(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 18,
+                                    color: Colors.red,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'الديون المستحقة',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${totalDebt.toStringAsFixed(0)} د.ج',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+
                     if (order.failureReason != null) ...[
                       const Divider(height: 16),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('سبب الفشل'),
-                          const SizedBox(width: 12),
+                          const Icon(
+                            Icons.warning,
+                            size: 16,
+                            color: AppTheme.dangerColor,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'سبب الفشل:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               order.failureReason!,
@@ -1122,10 +1319,7 @@ class OrderDetailsScreen extends StatelessWidget {
             // Items header
             const Text(
               'المنتجات',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
 
@@ -1189,16 +1383,11 @@ class _ItemCard extends StatelessWidget {
                     children: [
                       Text(
                         item.productName ?? 'منتج #${item.productId}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       Text(
                         '${item.unitPrice.toStringAsFixed(0)} د.ج / وحدة',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -1228,24 +1417,18 @@ class _ItemCard extends StatelessWidget {
                       color: AppTheme.primaryColor,
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 30,
-                    color: Colors.grey[300],
-                  ),
+                  Container(width: 1, height: 30, color: Colors.grey[300]),
                   Expanded(
                     child: _QuantityInfo(
                       label: 'مسلّم',
                       value: item.quantityDelivered,
-                      color: isFullyDelivered ? AppTheme.successColor : Colors.orange,
+                      color: isFullyDelivered
+                          ? AppTheme.successColor
+                          : Colors.orange,
                     ),
                   ),
                   if (hasReturned) ...[
-                    Container(
-                      width: 1,
-                      height: 30,
-                      color: Colors.grey[300],
-                    ),
+                    Container(width: 1, height: 30, color: Colors.grey[300]),
                     Expanded(
                       child: _QuantityInfo(
                         label: 'مرتجع',
@@ -1264,10 +1447,7 @@ class _ItemCard extends StatelessWidget {
                 children: [
                   Text(
                     'خصم: ${item.discount.toStringAsFixed(0)} د.ج',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.green[700],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.green[700]),
                   ),
                 ],
               ),
@@ -1302,13 +1482,7 @@ class _QuantityInfo extends StatelessWidget {
             color: color,
           ),
         ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
