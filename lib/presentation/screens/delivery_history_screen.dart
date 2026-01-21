@@ -1238,8 +1238,7 @@ class OrderDetailsScreen extends StatelessWidget {
 
                     // Total debt (amountDue already includes old debt + order total)
                     if (order.isDelivered || order.isPartial) ...[
-                      final totalDebt = (order.amountDue ?? order.grandTotal ?? 0) - (order.amountCollected ?? 0),
-                      if (totalDebt > 0) ...[
+                      if (((order.amountDue ?? order.grandTotal ?? 0) - (order.amountCollected ?? 0)) > 0) ...[
                         const Divider(height: 20),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -1268,7 +1267,7 @@ class OrderDetailsScreen extends StatelessWidget {
                                 ],
                               ),
                               Text(
-                                '${totalDebt.toStringAsFixed(0)} د.ج',
+                                '${((order.amountDue ?? order.grandTotal ?? 0) - (order.amountCollected ?? 0)).toStringAsFixed(0)} د.ج',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
