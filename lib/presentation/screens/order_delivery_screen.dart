@@ -22,10 +22,12 @@ class OrderDeliveryScreen extends ConsumerStatefulWidget {
 }
 
 class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
-  Map<int, int> deliveredQuantities = {};
+  Map<int, int> deliveredQuantities = {}; // cartons
+  Map<int, int> deliveredPieces = {}; // extra pieces
   Map<int, String> returnReasons = {};
   bool _isProcessing = false;
   bool _isLoading = true;
+  bool _hasModified = false;
   List<_ProductItem> _products = [];
   String? _errorMessage;
 
@@ -93,13 +95,14 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
               unitShortName: itemJson['unit_short_name'] ?? 'وحدة',
               piecesPerPackage: _parseNum(itemJson['pieces_per_package'] ?? 1),
               quantityOrdered: _parseNum(itemJson['quantity_ordered']),
-              quantityConfirmed: _parseNum(itemJson['quantity_confirmed']),
+              quantityConfirmedRaw: _parseDouble(itemJson['quantity_confirmed']),
               unitPrice: _parseDouble(itemJson['unit_price']),
               discount: _parseDouble(itemJson['discount']),
               subtotal: _parseDouble(itemJson['subtotal']),
             );
             _products.add(item);
-            deliveredQuantities[item.productId] = item.quantityConfirmed;
+            deliveredQuantities[item.productId] = item.confirmedCartons;
+            deliveredPieces[item.productId] = item.confirmedExtraPieces;
           }
         }
       }
@@ -132,12 +135,28 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     return 0;
   }
 
+  int _deliveredTotalPieces(_ProductItem item) {
+    final cartons = deliveredQuantities[item.productId] ?? 0;
+    final pieces = deliveredPieces[item.productId] ?? 0;
+    return (cartons * item.piecesPerPackage) + pieces;
+  }
+
+  int _returnedTotalPieces(_ProductItem item) {
+    return item.confirmedTotalPieces - _deliveredTotalPieces(item);
+  }
+
   double get totalDeliveredAmount {
     double total = 0;
     for (var item in _products) {
-      final qty = deliveredQuantities[item.productId] ?? 0;
-      // unitPrice is per piece, multiply by piecesPerPackage to match backend calculation
-      total += qty * item.unitPrice * item.piecesPerPackage;
+      final deliveredPcs = _deliveredTotalPieces(item);
+      // Use subtotal proportionally to match backend calculation (includes discounts/taxes)
+      if (item.confirmedTotalPieces > 0 && deliveredPcs > 0) {
+        if (deliveredPcs == item.confirmedTotalPieces) {
+          total += item.subtotal;
+        } else {
+          total += (item.subtotal / item.confirmedTotalPieces) * deliveredPcs;
+        }
+      }
     }
     return total;
   }
@@ -145,10 +164,10 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
   double get totalReturnedAmount {
     double total = 0;
     for (var item in _products) {
-      final delivered = deliveredQuantities[item.productId] ?? 0;
-      final returned = item.quantityConfirmed - delivered;
-      // unitPrice is per piece, multiply by piecesPerPackage to match backend calculation
-      total += returned * item.unitPrice * item.piecesPerPackage;
+      final returnedPcs = _returnedTotalPieces(item);
+      if (item.confirmedTotalPieces > 0 && returnedPcs > 0) {
+        total += (item.subtotal / item.confirmedTotalPieces) * returnedPcs;
+      }
     }
     return total;
   }
@@ -164,19 +183,22 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
   int get totalReturnedQty {
     int total = 0;
     for (var item in _products) {
-      final delivered = deliveredQuantities[item.productId] ?? 0;
-      total += item.quantityConfirmed - delivered;
+      if (_returnedTotalPieces(item) > 0) total++;
     }
     return total;
   }
 
-  bool get hasReturns => totalReturnedQty > 0;
+  bool get hasReturns {
+    for (var item in _products) {
+      if (_returnedTotalPieces(item) > 0) return true;
+    }
+    return false;
+  }
 
   bool get canSubmit {
     if (hasReturns) {
       for (var item in _products) {
-        final delivered = deliveredQuantities[item.productId] ?? 0;
-        if (item.quantityConfirmed - delivered > 0 && returnReasons[item.productId] == null) {
+        if (_returnedTotalPieces(item) > 0 && returnReasons[item.productId] == null) {
           return false;
         }
       }
@@ -184,11 +206,56 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     return true;
   }
 
+  Future<bool> _onWillPop() async {
+    if (!_hasModified) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('تنبيه'),
+          content: const Text('لقد قمت بتعديل الكميات. هل تريد الخروج وفقدان التعديلات؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('البقاء'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('خروج'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_hasModified,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            final shouldPop = await _onWillPop();
+            if (shouldPop && context.mounted) {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: Text(widget.order.clientName ?? 'تسليم الطلب', style: const TextStyle(fontSize: 16)),
         titleSpacing: 0,
         actions: [
@@ -227,6 +294,7 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                     _buildBottomSection(),
                   ],
                 ),
+    ),
     );
   }
 
@@ -322,14 +390,22 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
 
   Widget _buildProductItem(_ProductItem item) {
     final deliveredQty = deliveredQuantities[item.productId] ?? 0;
-    final returnedQty = item.quantityConfirmed - deliveredQty;
+    final deliveredPcs = deliveredPieces[item.productId] ?? 0;
+    final returnedPcs = _returnedTotalPieces(item);
+    final isFullyDelivered = _deliveredTotalPieces(item) == item.confirmedTotalPieces;
+
+    // Display confirmed quantity with pieces breakdown
+    String confirmedDisplay = '${item.confirmedCartons}';
+    if (item.confirmedExtraPieces > 0) {
+      confirmedDisplay += '+${item.confirmedExtraPieces}ق';
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: returnedQty > 0 ? Border.all(color: Colors.red[300]!, width: 1) : null,
+        border: returnedPcs > 0 ? Border.all(color: Colors.red[300]!, width: 1) : null,
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -347,7 +423,7 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                       Row(
                         children: [
                           Text(
-                            '${item.unitPrice.toStringAsFixed(0)} د.ج × ${item.quantityConfirmed}',
+                            '${item.unitPrice.toStringAsFixed(0)} د.ج × $confirmedDisplay',
                             style: TextStyle(color: Colors.grey[600], fontSize: 11),
                           ),
                           if (item.piecesPerPackage > 1) ...[
@@ -377,7 +453,7 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     Text(
-                      '${item.unitPrice.toStringAsFixed(0)}×${item.quantityConfirmed}',
+                      '${item.unitPrice.toStringAsFixed(0)}×$confirmedDisplay',
                       style: TextStyle(fontSize: 8, color: Colors.grey[500]),
                     ),
                   ],
@@ -385,29 +461,34 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            // Quantity control row
+            // Cartons quantity control row
             Row(
               children: [
                 // Quick buttons
-                _quickChip('الكل', AppTheme.successColor, deliveredQty == item.quantityConfirmed, () {
+                _quickChip('الكل', AppTheme.successColor, isFullyDelivered, () {
                   setState(() {
-                    deliveredQuantities[item.productId] = item.quantityConfirmed;
+                    deliveredQuantities[item.productId] = item.confirmedCartons;
+                    deliveredPieces[item.productId] = item.confirmedExtraPieces;
                     returnReasons.remove(item.productId);
+                    _hasModified = true;
                     _updateAmountFromQuantity();
                   });
                 }),
                 const SizedBox(width: 4),
-                _quickChip('صفر', AppTheme.dangerColor, deliveredQty == 0, () {
+                _quickChip('صفر', AppTheme.dangerColor, deliveredQty == 0 && deliveredPcs == 0, () {
                   setState(() {
                     deliveredQuantities[item.productId] = 0;
+                    deliveredPieces[item.productId] = 0;
+                    _hasModified = true;
                     _updateAmountFromQuantity();
                   });
                 }),
                 const Spacer(),
-                // Quantity controls
+                // Cartons controls
                 _qtyButton(Icons.remove, deliveredQty > 0, () {
                   setState(() {
                     deliveredQuantities[item.productId] = deliveredQty - 1;
+                    _hasModified = true;
                     _updateAmountFromQuantity();
                   });
                 }),
@@ -423,16 +504,90 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                     child: Text('$deliveredQty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
-                _qtyButton(Icons.add, deliveredQty < item.quantityConfirmed, () {
+                _qtyButton(Icons.add, deliveredQty < item.confirmedCartons || (deliveredQty == item.confirmedCartons && deliveredPcs < item.confirmedExtraPieces), () {
                   setState(() {
                     deliveredQuantities[item.productId] = deliveredQty + 1;
+                    final newTotal = ((deliveredQty + 1) * item.piecesPerPackage) + deliveredPcs;
+                    if (newTotal > item.confirmedTotalPieces) {
+                      deliveredPieces[item.productId] = 0;
+                    }
+                    _hasModified = true;
                     _updateAmountFromQuantity();
                   });
                 }),
               ],
             ),
+            // Extra pieces control row (only for products with piecesPerPackage > 1)
+            if (item.piecesPerPackage > 1) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text('قطع إضافية:', style: TextStyle(fontSize: 11, color: Colors.orange[700])),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: deliveredPcs > 0
+                        ? () {
+                            setState(() {
+                              deliveredPieces[item.productId] = deliveredPcs - 1;
+                              _hasModified = true;
+                    _updateAmountFromQuantity();
+                            });
+                          }
+                        : null,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: deliveredPcs > 0 ? Colors.orange[400] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.remove, color: Colors.white, size: 16),
+                    ),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 28,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[50],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.orange[200]!),
+                    ),
+                    child: Center(
+                      child: Text('$deliveredPcs', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange[800])),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      final maxPieces = item.piecesPerPackage - 1;
+                      final wouldExceed = (deliveredQty * item.piecesPerPackage) + deliveredPcs + 1 > item.confirmedTotalPieces;
+                      if (deliveredPcs < maxPieces && !wouldExceed) {
+                        setState(() {
+                          deliveredPieces[item.productId] = deliveredPcs + 1;
+                          _hasModified = true;
+                    _updateAmountFromQuantity();
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: (() {
+                          final maxPieces = item.piecesPerPackage - 1;
+                          final wouldExceed = (deliveredQty * item.piecesPerPackage) + deliveredPcs + 1 > item.confirmedTotalPieces;
+                          return deliveredPcs < maxPieces && !wouldExceed ? Colors.orange[400] : Colors.grey[300];
+                        })(),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             // Return reason dropdown if there are returns
-            if (returnedQty > 0) ...[
+            if (returnedPcs > 0) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -442,7 +597,10 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
                 ),
                 child: Row(
                   children: [
-                    Text('مرتجع: $returnedQty', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 11, fontWeight: FontWeight.w600)),
+                    Text(
+                      'مرتجع: ${returnedPcs ~/ item.piecesPerPackage > 0 ? "${returnedPcs ~/ item.piecesPerPackage}ك" : ""}${returnedPcs % item.piecesPerPackage > 0 ? "+${returnedPcs % item.piecesPerPackage}ق" : ""}',
+                      style: const TextStyle(color: AppTheme.dangerColor, fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(
@@ -774,13 +932,20 @@ class _OrderDeliveryScreenState extends ConsumerState<OrderDeliveryScreen> {
     try {
       if (hasReturns && _products.isNotEmpty) {
         final items = _products.map((item) {
-          final delivered = deliveredQuantities[item.productId] ?? 0;
-          final returned = item.quantityConfirmed - delivered;
+          final deliveredTotalPcs = _deliveredTotalPieces(item);
+          final returnedTotalPcs = _returnedTotalPieces(item);
+          // Convert to decimal quantity (cartons): pieces / piecesPerPackage
+          final deliveredDecimal = item.piecesPerPackage > 1
+              ? deliveredTotalPcs / item.piecesPerPackage
+              : deliveredTotalPcs.toDouble();
+          final returnedDecimal = item.piecesPerPackage > 1
+              ? returnedTotalPcs / item.piecesPerPackage
+              : returnedTotalPcs.toDouble();
           return {
             'product_id': item.productId,
-            'quantity_delivered': delivered,
-            'quantity_returned': returned,
-            'return_reason': returned > 0 ? (returnReasons[item.productId] ?? 'other') : null,
+            'quantity_delivered': deliveredDecimal,
+            'quantity_returned': returnedDecimal,
+            'return_reason': returnedTotalPcs > 0 ? (returnReasons[item.productId] ?? 'other') : null,
           };
         }).toList();
 
@@ -863,7 +1028,7 @@ class _ProductItem {
   final String unitShortName;
   final int piecesPerPackage;
   final int quantityOrdered;
-  final int quantityConfirmed;
+  final double quantityConfirmedRaw; // raw decimal (e.g. 1.25 = 1 carton + 3 pieces for 12-pack)
   final double unitPrice;
   final double discount;
   final double subtotal;
@@ -875,9 +1040,15 @@ class _ProductItem {
     this.unitShortName = 'وحدة',
     this.piecesPerPackage = 1,
     required this.quantityOrdered,
-    required this.quantityConfirmed,
+    required this.quantityConfirmedRaw,
     required this.unitPrice,
     required this.discount,
     required this.subtotal,
   });
+
+  int get confirmedCartons => quantityConfirmedRaw.floor();
+  int get confirmedExtraPieces => piecesPerPackage > 1
+      ? ((quantityConfirmedRaw - confirmedCartons) * piecesPerPackage).round()
+      : 0;
+  int get confirmedTotalPieces => (confirmedCartons * piecesPerPackage) + confirmedExtraPieces;
 }

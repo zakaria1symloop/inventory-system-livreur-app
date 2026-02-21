@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -165,6 +166,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         )
                       : const Text('تسجيل الدخول'),
+                ),
+                const SizedBox(height: 32),
+                // Version & Branding
+                Column(
+                  children: [
+                    const Text(
+                      'v1.0.1',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Built by ',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => launchUrl(Uri.parse('https://www.symloop.com')),
+                          child: const Text(
+                            'Symloop',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
